@@ -89,6 +89,7 @@ router.post("/mangas/:id/cover", upload.single("cover"), async (req, res) => {
 
     // URL pública (servida por /files no server.js)
     const publicUrl = `/files/mangas/${slug}/cover${ext}`;
+    console.log('Salvando coverUrl:', publicUrl);
     await manga.update({ coverUrl: publicUrl });
 
     return res.json({ ok: true, coverUrl: publicUrl });
