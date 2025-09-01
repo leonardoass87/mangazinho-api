@@ -35,8 +35,16 @@ EXIT;
 
 ### 3. Configurar Variáveis de Ambiente
 
-Criar arquivo `/var/www/mangazinho/.env`:
+**Opção A: Usar script automático (Recomendado)**
+```bash
+# Execute o script de configuração (já configurado para mangazinho.site)
+chmod +x setup-env.sh
+./setup-env.sh
+```
 
+**Opção B: Configuração manual**
+
+Criar arquivo `/var/www/mangazinho/.env`:
 ```env
 # Configurações do Banco de Dados
 DB_HOST=localhost
@@ -50,7 +58,7 @@ PORT=3000
 NODE_ENV=production
 
 # Configurações de CORS
-CORS_ORIGIN=https://seudominio.com
+CORS_ORIGIN=https://mangazinho.site
 
 # Configurações JWT
 JWT_SECRET=sua_chave_jwt_super_secreta_e_longa
@@ -60,14 +68,21 @@ UPLOAD_PATH=/var/www/mangazinho/storage
 MAX_FILE_SIZE=10485760
 ```
 
+**IMPORTANTE: Criar também `/var/www/mangazinho/frontend/.env.local`:**
+```env
+# Configurações para produção
+NEXT_PUBLIC_API_URL=https://mangazinho.site/api
+NEXT_PUBLIC_FILES_URL=https://mangazinho.site
+```
+
 ### 4. Configurar Nginx
 
 ```bash
 # Copiar configuração do Nginx
 sudo cp nginx.conf /etc/nginx/sites-available/mangazinho
 
-# Editar para seu domínio
-sudo nano /etc/nginx/sites-available/mangazinho
+# O domínio mangazinho.site já está configurado
+# Se precisar editar: sudo nano /etc/nginx/sites-available/mangazinho
 
 # Ativar site
 sudo ln -s /etc/nginx/sites-available/mangazinho /etc/nginx/sites-enabled/
@@ -109,6 +124,9 @@ sudo -u mangazinho npm install --production
 cd /var/www/mangazinho/frontend
 sudo -u mangazinho npm install
 sudo -u mangazinho npm run build
+
+# ⚠️ IMPORTANTE: Após o build, verificar se as variáveis de ambiente estão corretas
+sudo -u mangazinho cat .env.local
 ```
 
 ### 3. Configurar PM2
@@ -145,7 +163,7 @@ sudo ufw enable
 sudo apt install certbot python3-certbot-nginx
 
 # Obter certificado SSL
-sudo certbot --nginx -d seudominio.com -d www.seudominio.com
+sudo certbot --nginx -d mangazinho.site -d www.mangazinho.site
 ```
 
 ### 3. Configurações de Segurança Adicionais
@@ -235,6 +253,13 @@ pm2 restart all
 4. **Erro de CORS**
    - Verificar configuração `CORS_ORIGIN` no `.env`
    - Verificar configuração do Nginx
+
+5. **🆕 Capas não aparecem (Problema mais comum)**
+   - Verificar se `/var/www/mangazinho/frontend/.env.local` existe
+   - Verificar se `NEXT_PUBLIC_FILES_URL` está configurado corretamente
+   - Verificar se o domínio está no `next.config.mjs`
+   - Rebuild do frontend após alterações: `npm run build`
+   - Verificar logs do frontend: `pm2 logs mangazinho-frontend`
 
 ### Comandos Úteis
 
