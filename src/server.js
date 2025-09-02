@@ -5,32 +5,63 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cors = require('cors');
 
-// Carrega variáveis de ambiente se o arquivo .env existir
+// ---------------- Env por ambiente (.env + .env.{NODE_ENV}) ----------------
 try {
-  require('dotenv').config();
+  const env = process.env.NODE_ENV || 'development';
+
+  // 1) Defaults comuns (opcional)
+  require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+
+  // 2) Específico do ambiente (sobrescreve o que precisar)
+  require('dotenv').config({
+    path: path.resolve(process.cwd(), `.env.${env}`),
+    override: true,
+  });
+
+  // Log simples pra confirmar carregamento
+  // Ex.: 🔧 NODE_ENV=development | dotenv carregado: .env e .env.development
+  console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env e .env.${env}`);
 } catch (error) {
-  console.log('Arquivo .env não encontrado, usando configurações padrão');
+  console.log('Não foi possível carregar .env*; usando process.env');
 }
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4000; // não colidir com Next (3000)
 
 // ------------ Middlewares ------------
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ------------ CORS (allowlist a partir do .env) ------------
+const allowlist = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001')
+  .split(',')
+  .map(s => s.trim());
+
+console.log('🌍 Allowlist CORS carregado:', allowlist);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
-  credentials: true
+  origin: (origin, cb) => {
+    // Permite ferramentas sem Origin (Postman, curl)
+    if (!origin) return cb(null, true);
+    if (allowlist.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204
 }));
+
+// ❌ REMOVIDO: app.options('/*', cors());  // Express 5 quebra com wildcard aqui
 
 // ------------ DB & Models ------------
 const sequelize = require('./config/db');
 
 // importe TODOS os models que participam das associações ANTES do sync
 require('./models/Manga');
-require('./models/ChapterImage'); // 👈 novo
-require('./models/Chapter');      // 👈 necessário para criar tabela/associação
-require('./models/User');         // 👈 novo modelo de usuário
-// require('./models/ChapterImage'); // (deixe comentado se ainda não criou)
+require('./models/ChapterImage');
+require('./models/Chapter');
+require('./models/User');
 
 sequelize.sync({ force: false }).then(() => {
   console.log('Tabelas sincronizadas ✅');
@@ -51,7 +82,6 @@ if (process.env.NODE_ENV !== 'production') {
       },
       servers: [{ url: `http://localhost:${port}` }],
     },
-    // __dirname aqui é .../src
     apis: [path.join(__dirname, 'routes', '*.js')],
   };
   const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -61,16 +91,13 @@ if (process.env.NODE_ENV !== 'production') {
 // ------------ Rotas ------------
 const mangaRoutes   = require('./routes/manga.routes');
 const uploadRoutes  = require('./routes/upload.routes');
-const chapterRoutes = require('./routes/chapter.routes'); // 👈 router (não é model)
-const { router: authRoutes } = require('./routes/auth.routes'); // 👈 novo
+const chapterRoutes = require('./routes/chapter.routes');
+const { router: authRoutes } = require('./routes/auth.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/mangas', mangaRoutes);
 app.use('/api/mangas', chapterRoutes);  // expõe /api/mangas/:mangaId/chapters
 app.use('/api/upload', uploadRoutes);
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // ------------ Healthcheck ------------
 app.get('/', (_req, res) => {
