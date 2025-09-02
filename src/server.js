@@ -1,64 +1,119 @@
+// src/server.js
 const express = require('express');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
+const cors = require('cors');
+
+// ---------------- Env por ambiente (.env + .env.{NODE_ENV}) ----------------
+try {
+  const env = process.env.NODE_ENV || 'development';
+
+  // 1) Defaults comuns (opcional)
+  require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+
+  // 2) Específico do ambiente (sobrescreve o que precisar)
+  require('dotenv').config({
+    path: path.resolve(process.cwd(), `.env.${env}`),
+    override: true,
+  });
+
+  // Log simples pra confirmar carregamento
+  // Ex.: 🔧 NODE_ENV=development | dotenv carregado: .env e .env.development
+  console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env e .env.${env}`);
+} catch (error) {
+  console.log('Não foi possível carregar .env*; usando process.env');
+}
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 4000; // não colidir com Next (3000)
 
-// middlewares
+// ------------ Middlewares ------------
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const cors = require("cors");
+// ------------ CORS (allowlist a partir do .env) ------------
+const allowlist = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001')
+  .split(',')
+  .map(s => s.trim());
+
+console.log('🌍 Allowlist CORS carregado:', allowlist);
+
 app.use(cors({
-  origin: "http://localhost:3001"
+  origin: (origin, cb) => {
+    // Permite ferramentas sem Origin (Postman, curl)
+    if (!origin) return cb(null, true);
+    if (allowlist.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204
 }));
 
-// DB & models
-const sequelize = require("./config/db");
-require("./models/Manga"); // apenas garante o import do model
+// ❌ REMOVIDO: app.options('/*', cors());  // Express 5 quebra com wildcard aqui
+
+// ------------ DB & Models ------------
+const sequelize = require('./config/db');
+
+// importe TODOS os models que participam das associações ANTES do sync
+require('./models/Manga');
+require('./models/ChapterImage');
+require('./models/Chapter');
+require('./models/User');
 
 sequelize.sync({ force: false }).then(() => {
-  console.log("Tabelas sincronizadas ✅");
+  console.log('Tabelas sincronizadas ✅');
 });
 
-// arquivos estáticos de /storage em /files
-app.use("/files", express.static(path.join(__dirname, "..", "storage")));
+// ------------ Arquivos estáticos ------------
+app.use('/files', express.static(path.join(__dirname, '..', 'storage')));
 
-// ---- Swagger ----
-const swaggerOptions = {
-  definition: {
-    openapi: "3.0.0",
-    info: {
-      title: "Mangazinho API",
-      version: "1.0.0",
-      description: "API do Mangazinho - Leitor de Mangás com painel admin",
+// ------------ Swagger (apenas em desenvolvimento) ------------
+if (process.env.NODE_ENV !== 'production') {
+  const swaggerOptions = {
+    definition: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Mangazinho API',
+        version: '1.0.0',
+        description: 'API do Mangazinho - Leitor de Mangás com painel admin',
+      },
+      servers: [{ url: `http://localhost:${port}` }],
     },
-    servers: [{ url: "http://localhost:3000" }],
-  },
-  // __dirname aqui é .../src
-  apis: [path.join(__dirname, "routes", "*.js")],
-};
+    apis: [path.join(__dirname, 'routes', '*.js')],
+  };
+  const swaggerSpec = swaggerJsdoc(swaggerOptions);
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-// ------------------
+// ------------ Rotas ------------
+const mangaRoutes   = require('./routes/manga.routes');
+const uploadRoutes  = require('./routes/upload.routes');
+const chapterRoutes = require('./routes/chapter.routes');
+const { router: authRoutes } = require('./routes/auth.routes');
 
-// rotas
-const mangaRoutes = require("./routes/manga.routes");
-const uploadRoutes = require("./routes/upload.routes");
+app.use('/api/auth', authRoutes);
+app.use('/api/mangas', mangaRoutes);
+app.use('/api/mangas', chapterRoutes);  // expõe /api/mangas/:mangaId/chapters
+app.use('/api/upload', uploadRoutes);
 
-app.use("/mangas", mangaRoutes);
-app.use("/upload", uploadRoutes);
-
-// log simples (coloque ANTES das rotas se quiser logar tudo)
-// app.use((req, _res, next) => { console.log(req.method, req.url); next(); });
-
+// ------------ Healthcheck ------------
 app.get('/', (_req, res) => {
   res.send('API Mangazinho rodando 🚀');
 });
 
+// ------------ Error Handler ------------
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Algo deu errado!');
+});
+
+// ------------ Start ------------
 app.listen(port, () => {
-  console.log(`Server is listening on http://localhost:${port}`);
-  console.log(`Swagger UI:           http://localhost:${port}/api-docs`);
+  console.log(`Server is listening on port ${port}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Swagger UI: http://localhost:${port}/api-docs`);
+  }
 });

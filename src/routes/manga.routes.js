@@ -112,16 +112,84 @@ router.get("/:id", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   try {
-    const { title, synopsis } = req.body;
+    const { title, synopsis, genres, status } = req.body;
     if (!title) return res.status(400).json({ error: "title é obrigatório" });
 
     const slug = slugify(title, { lower: true, strict: true });
-    const manga = await Manga.create({ title, synopsis, slug });
+    const manga = await Manga.create({ title, synopsis, genres, status, slug });
 
     res.status(201).json(manga);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erro ao criar mangá" });
+  }
+});
+
+/**
+ * @openapi
+ * /mangas/{id}:
+ *   put:
+ *     summary: Atualiza um mangá existente
+ *     tags: [Mangas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string }
+ *               synopsis: { type: string }
+ *     responses:
+ *       200: { description: Atualizado }
+ *       404: { description: Não encontrado }
+ */
+router.put("/:id", async (req, res) => {
+  try {
+    const manga = await Manga.findByPk(req.params.id);
+    if (!manga) return res.status(404).json({ error: "Mangá não encontrado" });
+    const { title, synopsis, genres, status } = req.body || {};
+    if (typeof title === "string") manga.title = title;
+    if (typeof synopsis === "string") manga.synopsis = synopsis;
+    if (typeof genres === "string") manga.genres = genres;
+    if (status && ['ongoing', 'completed', 'paused'].includes(status)) manga.status = status;
+    await manga.save();
+    res.json(manga);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao atualizar mangá" });
+  }
+});
+
+/**
+ * @openapi
+ * /mangas/{id}:
+ *   delete:
+ *     summary: Exclui um mangá
+ *     tags: [Mangas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       204: { description: Removido }
+ *       404: { description: Não encontrado }
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const manga = await Manga.findByPk(req.params.id);
+    if (!manga) return res.status(404).json({ error: "Mangá não encontrado" });
+    await manga.destroy();
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao excluir mangá" });
   }
 });
 
