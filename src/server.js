@@ -33,15 +33,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ------------ CORS (allowlist a partir do .env) ------------
-const allowlist = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001')
-  .split(',')
-  .map(s => s.trim());
+if (!process.env.CORS_ORIGIN) {
+  console.error("❌ ERRO: Variável CORS_ORIGIN não encontrada no .env");
+  process.exit(1); // encerra o servidor, já que sem isso não faz sentido subir
+}
+
+const allowlist = process.env.CORS_ORIGIN.split(',').map(s => s.trim());
 
 console.log('🌍 Allowlist CORS carregado:', allowlist);
 
 app.use(cors({
   origin: (origin, cb) => {
     // Permite ferramentas sem Origin (Postman, curl)
+    console.log("🔎 Origin recebido:", origin);
     if (!origin) return cb(null, true);
     if (allowlist.includes(origin)) return cb(null, true);
     return cb(new Error('Not allowed by CORS'));
@@ -51,8 +55,6 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 204
 }));
-
-// ❌ REMOVIDO: app.options('/*', cors());  // Express 5 quebra com wildcard aqui
 
 // ------------ DB & Models ------------
 const sequelize = require('./config/db');
@@ -64,7 +66,7 @@ require('./models/Chapter');
 require('./models/User');
 
 sequelize.sync({ force: false }).then(() => {
-  console.log('Tabelas sincronizadas ✅');
+ // console.log('Tabelas sincronizadas ✅');
 });
 
 // ------------ Arquivos estáticos ------------
@@ -94,10 +96,10 @@ const uploadRoutes  = require('./routes/upload.routes');
 const chapterRoutes = require('./routes/chapter.routes');
 const { router: authRoutes } = require('./routes/auth.routes');
 
-app.use('/api/auth', authRoutes);
-app.use('/api/mangas', mangaRoutes);
-app.use('/api/mangas', chapterRoutes);  // expõe /api/mangas/:mangaId/chapters
-app.use('/api/upload', uploadRoutes);
+app.use('/auth', authRoutes);
+app.use('/mangas', mangaRoutes);
+app.use('/mangas', chapterRoutes);  // expõe /api/mangas/:mangaId/chapters
+app.use('/upload', uploadRoutes);
 
 // ------------ Healthcheck ------------
 app.get('/', (_req, res) => {

@@ -1,9 +1,0 @@
-# Configurações para produção - mangazinho.site
-# Copie este arquivo para /var/www/mangazinho/frontend/.env.local
-
-NEXT_PUBLIC_API_URL=https://mangazinho.site/api
-NEXT_PUBLIC_FILES_URL=https://mangazinho.site
-
-# Para desenvolvimento local, use:
-# NEXT_PUBLIC_API_URL=http://localhost:3000/api
-# NEXT_PUBLIC_FILES_URL=http://localhost:3000

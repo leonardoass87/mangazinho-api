@@ -4,7 +4,7 @@ dist/
 build/
 
 # Configurações locais
-.env
+.env.*
 *.env
 *.local
 
