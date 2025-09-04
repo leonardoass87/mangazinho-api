@@ -9,18 +9,10 @@ const cors = require('cors');
 try {
   const env = process.env.NODE_ENV || 'development';
 
-  if (env === 'development') {
-    // Carrega .env e .env.development apenas no ambiente local
-    require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
-    require('dotenv').config({
-      path: path.resolve(process.cwd(), `.env.${env}`),
-      override: true,
-    });
-    console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env e .env.${env}`);
-  } else {
-    // Em production/hml, usa apenas process.env (variáveis do sistema/GitHub Actions)
-    console.log(`🔧 NODE_ENV=${env} | usando variáveis do ambiente (sem .env.*)`);
-  }
+  // Sempre tenta carregar .env.<NODE_ENV>, mesmo em produção
+require('dotenv').config({ path: path.resolve(process.cwd(), `.env.${env}`) });
+console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env.${env}`);
+
 } catch (error) {
   console.log('Não foi possível carregar .env*; usando process.env');
 }
