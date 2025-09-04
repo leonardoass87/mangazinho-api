@@ -1,0 +1,49 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment: BE-API   # 🔹 conecta este job ao environment "BE-API"
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Criar .env.production
+        run: |
+          cd /home/dev/projects/mangazinho-api
+          cat > .env.production <<EOF
+          NODE_ENV=production
+          HOST=${{ vars.HOST }}
+          PORT=${{ vars.PORT }}
+
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+
+          CORS_ORIGIN=${{ vars.CORS_ORIGIN }}
+          EOF
+
+      - name: Deploy com PM2
+        run: |
+          cd /home/dev/projects/mangazinho-api
+          git fetch --all
+          git reset --hard origin/development
+
+          npm ci
+
+          pm2 stop mangazinho-api || true
+          pm2 delete mangazinho-api || true
+          pm2 start npm --name "mangazinho-api" -- run start:pm2
+          pm2 save
