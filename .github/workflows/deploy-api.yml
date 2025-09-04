@@ -45,5 +45,6 @@ jobs:
 
           pm2 stop mangazinho-api || true
           pm2 delete mangazinho-api || true
-          pm2 start npm --name "mangazinho-api" -- run start:pm2
+          pm2 start src/server.js --name "mangazinho-api"
           pm2 save
+
