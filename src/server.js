@@ -9,21 +9,22 @@ const cors = require('cors');
 try {
   const env = process.env.NODE_ENV || 'development';
 
-  // 1) Defaults comuns (opcional)
-  require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
-
-  // 2) Específico do ambiente (sobrescreve o que precisar)
-  require('dotenv').config({
-    path: path.resolve(process.cwd(), `.env.${env}`),
-    override: true,
-  });
-
-  // Log simples pra confirmar carregamento
-  // Ex.: 🔧 NODE_ENV=development | dotenv carregado: .env e .env.development
-  console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env e .env.${env}`);
+  if (env === 'development') {
+    // Carrega .env e .env.development apenas no ambiente local
+    require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+    require('dotenv').config({
+      path: path.resolve(process.cwd(), `.env.${env}`),
+      override: true,
+    });
+    console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env e .env.${env}`);
+  } else {
+    // Em production/hml, usa apenas process.env (variáveis do sistema/GitHub Actions)
+    console.log(`🔧 NODE_ENV=${env} | usando variáveis do ambiente (sem .env.*)`);
+  }
 } catch (error) {
   console.log('Não foi possível carregar .env*; usando process.env');
 }
+
 
 const app = express();
 const port = process.env.PORT || 4000; // não colidir com Next (3000)
