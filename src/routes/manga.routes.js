@@ -46,9 +46,36 @@ const Manga = require("../models/Manga");
  *               items:
  *                 $ref: '#/components/schemas/Manga'
  */
+const sequelize = require("../config/db");
+const Chapter = require("../models/Chapter");
+
 router.get("/", async (_req, res) => {
-  const list = await Manga.findAll({ order: [["createdAt", "DESC"]] });
-  res.json(list);
+  try {
+    const list = await Manga.findAll({
+      order: [["createdAt", "DESC"]],
+      attributes: {
+        include: [
+          [
+            sequelize.fn("COUNT", sequelize.col("chapters.id")),
+            "totalChapters"
+          ]
+        ]
+      },
+      include: [
+        {
+          model: Chapter,
+          as: "chapters",
+          attributes: [] // não traz os capítulos inteiros, só conta
+        }
+      ],
+      group: ["Manga.id"]
+    });
+
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao buscar mangás" });
+  }
 });
 
 /**
