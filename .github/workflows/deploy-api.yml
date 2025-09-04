@@ -9,26 +9,19 @@ jobs:
   deploy:
     runs-on: self-hosted
     environment: BE-API
-
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Instalar dependências
+      - name: Deploy API com PM2
         run: |
-          cd /home/dev/projects/mangazinho-api
+          cd /home/dev/projects/mangazinho-api   # ✅ caminho correto
+          git fetch --all
+          git reset --hard origin/development
+
           npm ci
 
-      - name: Deploy com PM2 (ecosystem)
-        run: |
-          cd /home/dev/projects/mangazinho-api
-
-          # Se já tiver rodando, para e deleta
           pm2 stop mangazinho-api || true
           pm2 delete mangazinho-api || true
-
-          # Sobe via ecosystem.config.js
-          pm2 start ecosystem.config.js --env production
-
-          # Salva estado do PM2
+          pm2 start npm --name "mangazinho-api" -- run start:pm2   # ✅ usa script package.json
           pm2 save
