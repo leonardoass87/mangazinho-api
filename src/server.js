@@ -9,14 +9,17 @@ const cors = require('cors');
 try {
   const env = process.env.NODE_ENV || 'development';
 
-  // Sempre tenta carregar .env.<NODE_ENV>, mesmo em produção
-require('dotenv').config({ path: path.resolve(process.cwd(), `.env.${env}`) });
-console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env.${env}`);
+  // Carrega .env.<NODE_ENV>
+  require('dotenv').config({ path: path.resolve(process.cwd(), `.env.${env}`) });
+  console.log(`🔧 NODE_ENV=${env} | dotenv carregado: .env.${env}`);
+
+  // Se existir, sobrescreve com .env.local
+  require('dotenv').config({ path: path.resolve(process.cwd(), `.env.local`), override: true });
+  console.log(`📌 Override com .env.local (se existir)`);
 
 } catch (error) {
   console.log('Não foi possível carregar .env*; usando process.env');
 }
-
 
 const app = express();
 const port = process.env.PORT || 4000; // não colidir com Next (3000)
